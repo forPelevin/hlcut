@@ -1,0 +1,27 @@
+.DS_Store
+
+# secrets
+.env
+
+# outputs
+out/
+.tmp/
+tmp/
+
+# local cache (models/bins/transcripts)
+.cache/
+
+# media artifacts
+*.mp4
+*.wav
+*.ass
+*.srt
+*.vtt
+# (avoid blanket *.json ignore; keep JSON available for future fixtures/config)
+
+# editors
+.vscode/
+.idea/
+
+# go
+bin/
