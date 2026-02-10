@@ -24,6 +24,10 @@ type Config struct {
 	ClipsN   int
 	MaxClip  time.Duration
 
+	// CacheDir is the base directory for local artifacts (audio, transcripts, etc.).
+	// If empty, defaults to ".cache".
+	CacheDir string
+
 	FFmpegPath  string
 	FFprobePath string
 
@@ -72,7 +76,11 @@ func Run(ctx context.Context, cfg Config) error {
 	uc := usecase.New(deps)
 
 	jobID := hash(cfg.InputMP4)
-	cacheDir := filepath.Join(".cache", "runs", jobID)
+	baseCache := cfg.CacheDir
+	if baseCache == "" {
+		baseCache = ".cache"
+	}
+	cacheDir := filepath.Join(baseCache, "runs", jobID)
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return err
 	}

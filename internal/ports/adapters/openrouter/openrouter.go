@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/forPelevin/hlcut/internal/types"
@@ -26,7 +29,7 @@ func New(apiKey, model, baseURL string) *Adapter {
 	if baseURL == "" {
 		baseURL = "https://openrouter.ai"
 	}
-	return &Adapter{key: apiKey, model: model, baseURL: baseURL, client: &http.Client{Timeout: 90 * time.Second}}
+	return &Adapter{key: apiKey, model: model, baseURL: baseURL, client: &http.Client{Timeout: 5 * time.Minute}}
 }
 
 func (a *Adapter) Refine(ctx context.Context, tr types.Transcript, cands []types.Candidate, clipsN int, maxClip time.Duration) ([]types.ClipSpec, error) {
@@ -128,9 +131,14 @@ func (a *Adapter) Refine(ctx context.Context, tr types.Transcript, cands []types
 		return nil, fmt.Errorf("openrouter: empty choices")
 	}
 
-	content, ok := raw.Choices[0].Message.Content.(string)
-	if !ok {
-		return nil, fmt.Errorf("openrouter: unexpected content type")
+	content, err := messageContentToString(raw.Choices[0].Message.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	clean, err := extractJSONObject(content)
+	if err != nil {
+		return nil, err
 	}
 
 	var out struct {
@@ -144,7 +152,7 @@ func (a *Adapter) Refine(ctx context.Context, tr types.Transcript, cands []types
 			Reason   string   `json:"reason"`
 		} `json:"clips"`
 	}
-	if err := json.Unmarshal([]byte(content), &out); err != nil {
+	if err := json.Unmarshal([]byte(clean), &out); err != nil {
 		return nil, err
 	}
 
@@ -152,28 +160,159 @@ func (a *Adapter) Refine(ctx context.Context, tr types.Transcript, cands []types
 	for _, c := range out.Clips {
 		st := time.Duration(c.StartSec * float64(time.Second))
 		en := time.Duration(c.EndSec * float64(time.Second))
+
+		// If the model returned invalid timing, fall back to candidate boundaries by idx.
+		if (en <= st) && c.Idx >= 0 && c.Idx < len(top) {
+			st = top[c.Idx].Start
+			en = top[c.Idx].End
+		}
 		if en <= st {
 			continue
 		}
 		if en-st > maxClip {
 			en = st + maxClip
 		}
-		res = append(res, types.ClipSpec{Start: st, End: en, Title: c.Title, Caption: c.Caption, Tags: c.Tags, Reason: c.Reason})
+
+		title := strings.TrimSpace(c.Title)
+		caption := strings.TrimSpace(c.Caption)
+		if title == "" {
+			title = "Highlight"
+		}
+		if caption == "" {
+			caption = title
+		}
+
+		res = append(res, types.ClipSpec{Start: st, End: en, Title: title, Caption: caption, Tags: c.Tags, Reason: c.Reason})
 		if len(res) >= clipsN {
 			break
 		}
 	}
+	// If model returned fewer clips than requested, pad deterministically using best-scoring candidates.
+	if len(res) < clipsN {
+		best := make([]types.Candidate, len(top))
+		copy(best, top)
+		sort.Slice(best, func(i, j int) bool {
+			s1 := best[i].InfoScore + best[i].HookScore
+			s2 := best[j].InfoScore + best[j].HookScore
+			if s1 == s2 {
+				return best[i].Start < best[j].Start
+			}
+			return s1 > s2
+		})
+
+		for _, c := range best {
+			if len(res) >= clipsN {
+				break
+			}
+			st, en := c.Start, c.End
+			if en-st > maxClip {
+				en = st + maxClip
+			}
+			if !isNonOverlapping(res, st, en) {
+				continue
+			}
+			res = append(res, types.ClipSpec{Start: st, End: en, Title: "Highlight", Caption: strings.TrimSpace(c.Text), Tags: nil, Reason: "pad"})
+		}
+	}
+
 	if len(res) == 0 {
 		return nil, fmt.Errorf("openrouter: no valid clips")
+	}
+	if len(res) > clipsN {
+		res = res[:clipsN]
 	}
 	return res, nil
 }
 
 func buildPrompt(candsJSON []byte) []byte {
 	return []byte(
-		"Select the best highlight clips from the candidate list. Return strictly valid JSON matching the provided schema. " +
+		"Select the best highlight clips from the candidate list. " +
+			"Return strictly valid JSON (no markdown, no code fences) matching the provided schema. " +
 			"Prefer clips that are both informative and hooky. Avoid near-duplicates. " +
 			"Clips must start cleanly and end on a complete thought." +
 			"\n\nCandidates JSON:\n" + string(candsJSON),
 	)
+}
+
+func messageContentToString(v any) (string, error) {
+	switch x := v.(type) {
+	case string:
+		return x, nil
+	case []any:
+		// Some providers return an array of {type,text} parts.
+		var b strings.Builder
+		for _, it := range x {
+			m, ok := it.(map[string]any)
+			if !ok {
+				continue
+			}
+			if t, ok := m["text"].(string); ok {
+				b.WriteString(t)
+			}
+		}
+		s := b.String()
+		if strings.TrimSpace(s) == "" {
+			return "", errors.New("openrouter: empty content")
+		}
+		return s, nil
+	default:
+		return "", fmt.Errorf("openrouter: unexpected content type %T", v)
+	}
+}
+
+func extractJSONObject(s string) (string, error) {
+	t := strings.TrimSpace(s)
+	if t == "" {
+		return "", errors.New("openrouter: empty content")
+	}
+
+	// Strip markdown code fences.
+	if strings.HasPrefix(t, "```") {
+		// Remove opening fence line.
+		if i := strings.Index(t, "\n"); i >= 0 {
+			t = t[i+1:]
+		}
+		// Remove trailing fence.
+		if j := strings.LastIndex(t, "```"); j >= 0 {
+			t = t[:j]
+		}
+		t = strings.TrimSpace(t)
+	}
+
+	// Best-effort: take the first JSON object found.
+	start := strings.Index(t, "{")
+	end := strings.LastIndex(t, "}")
+	if start >= 0 && end > start {
+		return t[start : end+1], nil
+	}
+
+	return "", fmt.Errorf("openrouter: could not locate JSON object in: %q", truncate(t, 200))
+}
+
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n])
+}
+
+func isNonOverlapping(existing []types.ClipSpec, st, en time.Duration) bool {
+	for _, e := range existing {
+		// consider overlaps or near-duplicates (start within 1s)
+		if absDur(e.Start-st) < time.Second {
+			return false
+		}
+		if st < e.End && en > e.Start {
+			return false
+		}
+	}
+	return true
+}
+
+func absDur(d time.Duration) time.Duration {
+	if d < 0 {
+		return -d
+	}
+	return d
 }

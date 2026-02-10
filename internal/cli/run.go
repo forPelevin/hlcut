@@ -39,6 +39,8 @@ func run(cmd *cobra.Command, input string) error {
 		FFmpegPath:  "ffmpeg",
 		FFprobePath: "ffprobe",
 
+		CacheDir: ".cache",
+
 		WhisperBin:   ".cache/bin/whisper.cpp",
 		WhisperModel: ".cache/models/ggml-base.bin",
 

@@ -28,7 +28,7 @@ test: env_up
 
 itest: env_up
 	@if [ ! -f .env ]; then echo "Missing .env (copy from .env.example)"; exit 2; fi
-	@if ! grep -q '^OPENROUTER_API_KEY=' .env || grep -q '^OPENROUTER_API_KEY=$' .env; then echo "OPENROUTER_API_KEY is required in .env"; exit 2; fi
+	@if ! grep -q '^OPENROUTER_API_KEY=' .env || grep -q '^OPENROUTER_API_KEY=$$' .env; then echo "OPENROUTER_API_KEY is required in .env"; exit 2; fi
 	docker run --rm \
 		--env-file .env \
 		-v "$(PWD)":/work \
