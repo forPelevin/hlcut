@@ -43,7 +43,7 @@ func run(cmd *cobra.Command, input string) error {
 		WhisperModel: ".cache/models/ggml-base.bin",
 
 		OpenRouterAPIKey:  apiKey,
-		OpenRouterModel:   getenvDefault("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet"),
+		OpenRouterModel:   getenvDefault("OPENROUTER_MODEL", "z-ai/glm-4.5-air:free"),
 		OpenRouterBaseURL: getenvDefault("OPENROUTER_BASE_URL", "https://openrouter.ai"),
 	}
 
