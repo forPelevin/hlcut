@@ -45,6 +45,10 @@ func TestE2E(t *testing.T) {
 	defer cancel()
 
 	for attempt := 1; attempt <= 3; attempt++ {
+		if err := os.RemoveAll(outDir); err != nil {
+			t.Fatalf("cleanup output dir before retry: %v", err)
+		}
+
 		cmd := exec.CommandContext(
 			ctx,
 			"go", "run", "./cmd/hlcut",
