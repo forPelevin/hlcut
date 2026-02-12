@@ -44,20 +44,33 @@ func TestE2E(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(
-		ctx,
-		"go", "run", "./cmd/hlcut",
-		sample,
-		"--out", outDir,
-		"--clips", "2",
-		"--burn-subtitles",
-		"--min", "5",
-		"--max", "60",
-	)
-	cmd.Dir = repoRoot
-	cmd.Env = os.Environ()
-	if b, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("cli failed: %v\n%s", err, string(b))
+	for attempt := 1; attempt <= 3; attempt++ {
+		cmd := exec.CommandContext(
+			ctx,
+			"go", "run", "./cmd/hlcut",
+			sample,
+			"--out", outDir,
+			"--clips", "2",
+			"--burn-subtitles",
+			"--min", "5",
+			"--max", "60",
+		)
+		cmd.Dir = repoRoot
+		cmd.Env = os.Environ()
+
+		if b, err := cmd.CombinedOutput(); err != nil {
+			out := string(b)
+			if strings.Contains(out, "openrouter status 429") {
+				if attempt == 3 {
+					t.Skipf("skipping e2e due to upstream rate limit after %d attempts:\n%s", attempt, out)
+				}
+				t.Logf("openrouter rate-limited on attempt %d/3, retrying", attempt)
+				time.Sleep(time.Duration(attempt) * time.Second)
+				continue
+			}
+			t.Fatalf("cli failed: %v\n%s", err, out)
+		}
+		break
 	}
 
 	runDirs, err := filepath.Glob(filepath.Join(outDir, "*"))

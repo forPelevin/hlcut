@@ -32,7 +32,7 @@ jobs:
             -v "$PWD":/work \
             -w /work \
             hlcut-env:local \
-            bash -c "go build ./..."
+            bash -c "go build -buildvcs=false ./..."
 
   unit-tests:
     name: Unit Tests
