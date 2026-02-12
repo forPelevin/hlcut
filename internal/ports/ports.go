@@ -18,5 +18,12 @@ type ASR interface {
 }
 
 type LLMRanker interface {
-	Refine(ctx context.Context, tr types.Transcript, cands []types.Candidate, clipsN int, maxClip time.Duration) ([]types.ClipSpec, error)
+	Refine(
+		ctx context.Context,
+		tr types.Transcript,
+		cands []types.Candidate,
+		clipsN int,
+		minClip time.Duration,
+		maxClip time.Duration,
+	) ([]types.ClipSpec, error)
 }

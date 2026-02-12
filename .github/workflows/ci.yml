@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/bootstrap-tdd
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build CI image
+        run: make env_up
+
+      - name: Build
+        run: |
+          docker run --rm \
+            -v "$PWD":/work \
+            -w /work \
+            hlcut-env:local \
+            bash -c "go build -buildvcs=false ./..."
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        run: make test
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate OpenRouter API key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "${OPENROUTER_API_KEY}" ]; then
+            echo "OPENROUTER_API_KEY secret is required for integration tests"
+            exit 1
+          fi
+
+      - name: Write CI .env
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          echo "::add-mask::${OPENROUTER_API_KEY}"
+          printf 'OPENROUTER_API_KEY=%s\n' "${OPENROUTER_API_KEY}" > .env
+
+      - name: Run integration tests
+        run: |
+          make setup
+          make itest
+
+      - name: Cleanup CI .env
+        if: always()
+        run: rm -f .env

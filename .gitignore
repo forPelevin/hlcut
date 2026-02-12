@@ -17,6 +17,7 @@ tmp/
 *.ass
 *.srt
 *.vtt
+!internal/itest/testdata/*.mp4
 # (avoid blanket *.json ignore; keep JSON available for future fixtures/config)
 
 # editors

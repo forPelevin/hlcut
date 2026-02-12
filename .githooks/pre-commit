@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[pre-commit] running lint"
+make lint
+
+echo "[pre-commit] running unit tests"
+make test
+
+echo "[pre-commit] running integration tests"
+make itest
