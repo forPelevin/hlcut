@@ -2,9 +2,11 @@ name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
-      - feat/bootstrap-tdd
+      - main
   workflow_dispatch:
 
 permissions:
