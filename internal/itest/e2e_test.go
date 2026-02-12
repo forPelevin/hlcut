@@ -64,11 +64,11 @@ func TestE2E(t *testing.T) {
 
 		if b, err := cmd.CombinedOutput(); err != nil {
 			out := string(b)
-			if strings.Contains(out, "openrouter status 429") {
+			if isTransientUpstreamFailure(out) {
 				if attempt == 3 {
-					t.Skipf("skipping e2e due to upstream rate limit after %d attempts:\n%s", attempt, out)
+					t.Skipf("skipping e2e due to transient upstream failure after %d attempts:\n%s", attempt, out)
 				}
-				t.Logf("openrouter rate-limited on attempt %d/3, retrying", attempt)
+				t.Logf("transient upstream failure on attempt %d/3, retrying", attempt)
 				time.Sleep(time.Duration(attempt) * time.Second)
 				continue
 			}
@@ -153,4 +153,13 @@ func TestE2E(t *testing.T) {
 			t.Fatalf("expected duration <= 60.2s for %s, got %v", mp4, dur)
 		}
 	}
+}
+
+func isTransientUpstreamFailure(out string) bool {
+	return strings.Contains(out, "openrouter status 429") ||
+		strings.Contains(out, "context deadline exceeded") ||
+		strings.Contains(out, "Client.Timeout exceeded while awaiting headers") ||
+		strings.Contains(out, "openrouter status 502") ||
+		strings.Contains(out, "openrouter status 503") ||
+		strings.Contains(out, "openrouter status 504")
 }
