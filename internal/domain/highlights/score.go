@@ -20,6 +20,8 @@ func Score(text string) (float64, float64) {
 	}
 	lower := strings.ToLower(t)
 
+	// Lightweight heuristic on purpose: deterministic, cheap, and "good enough"
+	// for candidate pre-ranking before LLM refinement makes final selections.
 	info := float64(len(reNum.FindAllStringIndex(t, -1))) * 0.4
 	if reHow.MatchString(lower) {
 		info += 1.2

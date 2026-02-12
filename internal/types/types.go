@@ -50,7 +50,7 @@ type ManifestClip struct {
 	HookScore float64  `json:"hook_score"`
 	Text      string   `json:"text"`
 	File      string   `json:"file"`
-	Subs      string   `json:"subs"`
+	Subtitles string   `json:"subtitles"`
 	Title     string   `json:"title"`
 	Caption   string   `json:"caption"`
 	Tags      []string `json:"tags"`

@@ -11,9 +11,12 @@ import (
 func RenderTikTokASS(tr types.Transcript, start, end time.Duration) (string, error) {
 	words := collectWords(tr, start, end)
 	if len(words) == 0 {
+		// Fallback keeps subtitle rendering robust when ASR has segment text but
+		// no usable per-word timestamps.
 		text := collectSegmentText(tr, start, end)
 		return renderASSPlain(text, end-start), nil
 	}
+	// Karaoke mode is preferred for readability and pacing in short-form clips.
 	lines := packWords(words)
 	return renderASSKaraoke(lines), nil
 }
@@ -49,6 +52,8 @@ func collectWords(tr types.Transcript, start, end time.Duration) []wword {
 			if we > end {
 				we = end
 			}
+			// Event times are normalized to clip-local offsets because renderer
+			// operates on per-clip subtitle files, not full-timeline subtitles.
 			out = append(out, wword{Start: ws - start, End: we - start, Text: sanitizeASS(text)})
 		}
 	}
@@ -73,6 +78,8 @@ func collectSegmentText(tr types.Transcript, start, end time.Duration) string {
 func packWords(words []wword) []line {
 	var out []line
 	cur := line{Start: words[0].Start}
+	// Hard budgets trade exact transcript grouping for consistently readable
+	// subtitle chunks on vertical-video layouts.
 	charBudget := 42
 	wordBudget := 9
 	curLen := 0
@@ -98,9 +105,6 @@ func packWords(words []wword) []line {
 			cur.End = w.End
 			out = append(out, cur)
 		}
-	}
-	if len(out) > 2 {
-		return out[:2]
 	}
 	return out
 }

@@ -20,11 +20,11 @@ hlcut uses a ports-and-adapters structure to keep the core logic testable.
 ## Data flow
 1. **Extract audio**: MP4 → WAV (mono, 16k)
 2. **ASR**: WAV → transcript (segments + words)
-3. **Build candidates**: windows (start/end/text + heuristic scores)
-4. **LLM refine**: select the best N clips (bounded by max)
-5. **Subtitles**: transcript slice → `.ass` karaoke
-6. **Render**: ffmpeg burns ASS into the final clip
-7. **Manifest**: JSON index of outputs
+3. **Build candidates**: windows (start/end/text + heuristic scores), constrained by min/max duration
+4. **LLM refine**: select distinct non-overlapping highlight clips (bounded by requested max count)
+5. **Subtitles (optional)**: transcript slice → `.ass` karaoke when `--burn-subtitles` is enabled
+6. **Render**: ffmpeg writes final clips; ASS burn-in is enabled only when `--burn-subtitles` is set
+7. **Manifest**: JSON index of outputs (may contain zero clips if no valid highlights)
 
 ## Testing strategy
 - `make test`: unit tests only (fast, deterministic)
