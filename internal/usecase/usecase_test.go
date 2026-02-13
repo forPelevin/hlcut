@@ -109,6 +109,7 @@ func TestRun_BurnSubtitlesToggle(t *testing.T) {
 
 type fakeVideoTool struct {
 	renderBurnASS []string
+	renderStarts  []time.Duration
 }
 
 func (f *fakeVideoTool) ExtractAudioMono16k(_ context.Context, _, _ string) error {
@@ -118,12 +119,13 @@ func (f *fakeVideoTool) ExtractAudioMono16k(_ context.Context, _, _ string) erro
 func (f *fakeVideoTool) RenderClip(
 	_ context.Context,
 	_ string,
-	_ time.Duration,
+	start time.Duration,
 	_ time.Duration,
 	_ string,
 	burnASS string,
 ) error {
 	f.renderBurnASS = append(f.renderBurnASS, burnASS)
+	f.renderStarts = append(f.renderStarts, start)
 	return nil
 }
 
@@ -167,5 +169,64 @@ func testTranscript() types.Transcript {
 				},
 			},
 		},
+	}
+}
+
+func TestRun_SortsClipsByTimeline(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	outDir := filepath.Join(tmp, "out")
+	clipsDir := filepath.Join(outDir, "clips")
+	if err := os.MkdirAll(clipsDir, 0o755); err != nil {
+		t.Fatalf("mkdir clips dir: %v", err)
+	}
+
+	video := &fakeVideoTool{}
+	uc := New(Deps{
+		Video: video,
+		ASR:   fakeASR{tr: testTranscript()},
+		LLM: fakeLLM{clips: []types.ClipSpec{
+			{
+				Start:   2 * time.Minute,
+				End:     2*time.Minute + 20*time.Second,
+				Title:   "late",
+				Caption: "late",
+			},
+			{
+				Start:   20 * time.Second,
+				End:     40 * time.Second,
+				Title:   "early",
+				Caption: "early",
+			},
+		}},
+	})
+
+	res, err := uc.Run(context.Background(), Input{
+		InputMP4: filepath.Join(tmp, "in.mp4"),
+		ClipsN:   2,
+		MinClip:  20 * time.Second,
+		MaxClip:  3 * time.Minute,
+		CacheDir: filepath.Join(tmp, "cache"),
+		OutDir:   outDir,
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if len(res.Manifest.Clips) != 2 {
+		t.Fatalf("expected 2 clips in manifest, got %d", len(res.Manifest.Clips))
+	}
+	if res.Manifest.Clips[0].StartSec > res.Manifest.Clips[1].StartSec {
+		t.Fatalf("expected clips sorted by start time, got %.2f then %.2f", res.Manifest.Clips[0].StartSec, res.Manifest.Clips[1].StartSec)
+	}
+	if res.Manifest.Clips[0].ID != "001" || res.Manifest.Clips[1].ID != "002" {
+		t.Fatalf("expected sequential ids for sorted clips, got %s and %s", res.Manifest.Clips[0].ID, res.Manifest.Clips[1].ID)
+	}
+	if len(video.renderStarts) != 2 {
+		t.Fatalf("expected 2 render calls, got %d", len(video.renderStarts))
+	}
+	if video.renderStarts[0] > video.renderStarts[1] {
+		t.Fatalf("expected render order to follow timeline, got %s then %s", video.renderStarts[0], video.renderStarts[1])
 	}
 }

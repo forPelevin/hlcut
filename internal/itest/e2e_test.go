@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -56,8 +55,6 @@ func TestE2E(t *testing.T) {
 			"--out", outDir,
 			"--clips", "2",
 			"--burn-subtitles",
-			"--min", "5",
-			"--max", "60",
 		)
 		cmd.Dir = repoRoot
 		cmd.Env = os.Environ()
@@ -102,16 +99,18 @@ func TestE2E(t *testing.T) {
 		t.Fatalf("expected at most 2 clips, got %d", len(m.Clips))
 	}
 
-	clips := make([]types.ManifestClip, len(m.Clips))
-	copy(clips, m.Clips)
-	sort.Slice(clips, func(i, j int) bool {
-		return clips[i].StartSec < clips[j].StartSec
-	})
-
+	for i := 1; i < len(m.Clips); i++ {
+		if m.Clips[i].StartSec < m.Clips[i-1].StartSec {
+			t.Fatalf(
+				"expected manifest clips to be sorted by start time, got clip %s (%.2f) before clip %s (%.2f)",
+				m.Clips[i-1].ID, m.Clips[i-1].StartSec, m.Clips[i].ID, m.Clips[i].StartSec,
+			)
+		}
+	}
 	var prevEnd float64
-	for i, c := range clips {
-		if c.EndSec-c.StartSec < 5 {
-			t.Fatalf("expected duration >= 5s for clip %s, got %.2fs", c.ID, c.EndSec-c.StartSec)
+	for i, c := range m.Clips {
+		if c.EndSec-c.StartSec < 19.8 {
+			t.Fatalf("expected duration >= 20s for clip %s, got %.2fs", c.ID, c.EndSec-c.StartSec)
 		}
 		if i > 0 && c.StartSec < prevEnd {
 			t.Fatalf("clips overlap: prev end %.2f, current start %.2f", prevEnd, c.StartSec)
@@ -146,11 +145,11 @@ func TestE2E(t *testing.T) {
 		if dur <= 0 {
 			t.Fatalf("expected positive duration for %s, got %v", mp4, dur)
 		}
-		if dur < 4.8 {
-			t.Fatalf("expected duration >= 4.8s for %s, got %v", mp4, dur)
+		if dur < 19.8 {
+			t.Fatalf("expected duration >= 19.8s for %s, got %v", mp4, dur)
 		}
-		if dur > 60.2 {
-			t.Fatalf("expected duration <= 60.2s for %s, got %v", mp4, dur)
+		if dur > 180.2 {
+			t.Fatalf("expected duration <= 180.2s for %s, got %v", mp4, dur)
 		}
 	}
 }

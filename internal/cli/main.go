@@ -33,18 +33,6 @@ func Main() {
 	root.Flags().Int("clips", 12, "Number of clips")
 	root.Flags().Bool("burn-subtitles", false, "Burn karaoke subtitles into clips and write ASS files")
 
-	// Hidden tuning flag (internal)
-	root.Flags().Int("max", 60, "Max clip duration seconds")
-	if err := root.Flags().MarkHidden("max"); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	root.Flags().Int("min", 20, "Min clip duration seconds")
-	if err := root.Flags().MarkHidden("min"); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

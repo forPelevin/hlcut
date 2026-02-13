@@ -74,33 +74,17 @@ func TestRobustness_ArgsValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "min zero",
-			args: staticArgs(sample, "--min", "0"),
-			env: map[string]string{
-				"OPENROUTER_API_KEY": "dummy",
-			},
+			name: "min flag removed",
+			args: staticArgs(sample, "--min", "10"),
 			wantContains: []string{
-				"config: min clip must be > 0",
+				"unknown flag: --min",
 			},
 		},
 		{
-			name: "max zero",
-			args: staticArgs(sample, "--max", "0"),
-			env: map[string]string{
-				"OPENROUTER_API_KEY": "dummy",
-			},
+			name: "max flag removed",
+			args: staticArgs(sample, "--max", "120"),
 			wantContains: []string{
-				"config: max clip must be > 0",
-			},
-		},
-		{
-			name: "min greater than max",
-			args: staticArgs(sample, "--min", "61", "--max", "60"),
-			env: map[string]string{
-				"OPENROUTER_API_KEY": "dummy",
-			},
-			wantContains: []string{
-				"config: min clip must be <= max clip",
+				"unknown flag: --max",
 			},
 		},
 	}
@@ -133,12 +117,12 @@ func TestRobustness_InvalidInputMedia(t *testing.T) {
 				"ffmpeg extract audio:",
 			},
 		},
-			{
-				name: "input is non media file",
-				args: staticArgs(filepath.Join(repoRoot, "internal", "itest", "testdata", "not-media.txt")),
-				env: map[string]string{
-					"OPENROUTER_API_KEY": "dummy",
-				},
+		{
+			name: "input is non media file",
+			args: staticArgs(filepath.Join(repoRoot, "internal", "itest", "testdata", "not-media.txt")),
+			env: map[string]string{
+				"OPENROUTER_API_KEY": "dummy",
+			},
 			wantContains: []string{
 				"ffmpeg extract audio:",
 			},

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/forPelevin/hlcut/internal/domain/highlights"
@@ -87,6 +88,12 @@ func (u Usecase) Run(ctx context.Context, in Input) (Result, error) {
 			formatTimestamp(in.MaxClip),
 		)
 	}
+	sort.Slice(clipSpecs, func(i, j int) bool {
+		if clipSpecs[i].Start == clipSpecs[j].Start {
+			return clipSpecs[i].End < clipSpecs[j].End
+		}
+		return clipSpecs[i].Start < clipSpecs[j].Start
+	})
 
 	if in.BurnSubtitles {
 		logf(in.Logf, "stage 5/5: rendering clips and subtitles")

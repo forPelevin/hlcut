@@ -16,6 +16,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultMinClipSec = 20
+	defaultMaxClipSec = 60 + 2*60
+)
+
 func run(cmd *cobra.Command, input string) error {
 	started := time.Now()
 	logf := newRunLogger(cmd.ErrOrStderr(), started)
@@ -27,14 +32,6 @@ func run(cmd *cobra.Command, input string) error {
 	clipsN, err := cmd.Flags().GetInt("clips")
 	if err != nil {
 		return fmt.Errorf("read clips flag: %w", err)
-	}
-	maxSec, err := cmd.Flags().GetInt("max")
-	if err != nil {
-		return fmt.Errorf("read max flag: %w", err)
-	}
-	minSec, err := cmd.Flags().GetInt("min")
-	if err != nil {
-		return fmt.Errorf("read min flag: %w", err)
 	}
 	burnSubtitles, err := cmd.Flags().GetBool("burn-subtitles")
 	if err != nil {
@@ -58,7 +55,7 @@ func run(cmd *cobra.Command, input string) error {
 	logf("starting run")
 	logf("input: %s", absIn)
 	logf("output: %s", absOut)
-	logf("requested clips: %d (%d-%ds each)", clipsN, minSec, maxSec)
+	logf("requested clips: %d (%d-%ds each)", clipsN, defaultMinClipSec, defaultMaxClipSec)
 	logf("burn subtitles: %t", burnSubtitles)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Hour)
@@ -68,8 +65,8 @@ func run(cmd *cobra.Command, input string) error {
 		InputMP4:      absIn,
 		OutDir:        outDir,
 		ClipsN:        clipsN,
-		MinClip:       time.Duration(minSec) * time.Second,
-		MaxClip:       time.Duration(maxSec) * time.Second,
+		MinClip:       time.Duration(defaultMinClipSec) * time.Second,
+		MaxClip:       time.Duration(defaultMaxClipSec) * time.Second,
 		BurnSubtitles: burnSubtitles,
 
 		FFmpegPath:  "ffmpeg",
