@@ -12,13 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forPelevin/hlcut/internal/domain/highlights"
 	"github.com/forPelevin/hlcut/internal/pipeline"
 	"github.com/spf13/cobra"
-)
-
-const (
-	defaultMinClipSec = 20
-	defaultMaxClipSec = 60 + 2*60
 )
 
 func run(cmd *cobra.Command, input string) error {
@@ -33,6 +29,8 @@ func run(cmd *cobra.Command, input string) error {
 	if err != nil {
 		return fmt.Errorf("read clips flag: %w", err)
 	}
+	clipsFlag := cmd.Flags().Lookup("clips")
+	clipsNSet := clipsFlag != nil && clipsFlag.Changed
 	burnSubtitles, err := cmd.Flags().GetBool("burn-subtitles")
 	if err != nil {
 		return fmt.Errorf("read burn-subtitles flag: %w", err)
@@ -55,7 +53,14 @@ func run(cmd *cobra.Command, input string) error {
 	logf("starting run")
 	logf("input: %s", absIn)
 	logf("output: %s", absOut)
-	logf("requested clips: %d (%d-%ds each)", clipsN, defaultMinClipSec, defaultMaxClipSec)
+	minClip, maxClip := highlights.DurationBounds()
+	minClipSec := int(minClip.Seconds())
+	maxClipSec := int(maxClip.Seconds())
+	if clipsNSet {
+		logf("requested clips: %d (%d-%ds each)", clipsN, minClipSec, maxClipSec)
+	} else {
+		logf("requested clips: auto (%d-%ds each)", minClipSec, maxClipSec)
+	}
 	logf("burn subtitles: %t", burnSubtitles)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Hour)
@@ -65,8 +70,7 @@ func run(cmd *cobra.Command, input string) error {
 		InputMP4:      absIn,
 		OutDir:        outDir,
 		ClipsN:        clipsN,
-		MinClip:       time.Duration(defaultMinClipSec) * time.Second,
-		MaxClip:       time.Duration(defaultMaxClipSec) * time.Second,
+		ClipsNSet:     clipsNSet,
 		BurnSubtitles: burnSubtitles,
 
 		FFmpegPath:  "ffmpeg",

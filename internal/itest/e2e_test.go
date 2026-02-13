@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forPelevin/hlcut/internal/domain/highlights"
 	"github.com/forPelevin/hlcut/internal/types"
 )
 
@@ -92,11 +93,20 @@ func TestE2E(t *testing.T) {
 	if err := json.Unmarshal(mb, &m); err != nil {
 		t.Fatalf("parse manifest: %v", err)
 	}
-	if len(m.Clips) == 0 {
-		t.Fatalf("expected at least 1 clip, got 0")
-	}
 	if len(m.Clips) > 2 {
 		t.Fatalf("expected at most 2 clips, got %d", len(m.Clips))
+	}
+	if len(m.Clips) == 0 {
+		sampleDur, err := probeDurationSeconds(sample)
+		if err != nil {
+			t.Fatalf("probe sample duration: %v", err)
+		}
+		minClip, _ := highlights.DurationBounds()
+		if sampleDur+0.2 < minClip.Seconds() {
+			// No clip can be produced when input is shorter than internal min clip duration.
+			return
+		}
+		t.Fatalf("expected at least 1 clip, got 0")
 	}
 
 	for i := 1; i < len(m.Clips); i++ {

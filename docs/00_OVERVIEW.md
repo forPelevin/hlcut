@@ -15,7 +15,7 @@ Most long videos are 90% filler. hlcut’s goal is to turn long-form content int
   - `manifest.json`
   - `clips/*.mp4` (h264+aac)
   - optional `subtitles/*.ass` (karaoke `\k` tags) when `--burn-subtitles` is enabled
-- Default clip duration range: **20..60s** (hidden flags `--min` and `--max`)
+- Clip duration range is enforced by internal policy (current defaults: **20..180s**)
 - `--clips` is the maximum number of returned highlights (not exact)
 - `--burn-subtitles` controls subtitle sidecars + burned-in render (default: `false`)
 - Selected clips are distinct and non-overlapping

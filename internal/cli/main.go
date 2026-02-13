@@ -30,7 +30,7 @@ func Main() {
 
 	// Visible flags
 	root.Flags().String("out", "out", "Output directory")
-	root.Flags().Int("clips", 12, "Number of clips")
+	root.Flags().Int("clips", 12, "Max clips to return")
 	root.Flags().Bool("burn-subtitles", false, "Burn karaoke subtitles into clips and write ASS files")
 
 	if err := root.Execute(); err != nil {

@@ -11,7 +11,7 @@
 - **Highlight candidate generation**:
   - Prefer word-timestamp windows (more granular)
   - Fallback to segment windows
-  - Enforces duration bounds: `minClip..maxClip` (defaults: 20..60s)
+  - Enforces internal duration bounds (current defaults: 20..180s)
   - Samples candidates across the full transcript timeline
 - **LLM ranking/refinement** via OpenRouter:
   - Sends a bounded candidate list

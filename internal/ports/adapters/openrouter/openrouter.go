@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forPelevin/hlcut/internal/domain/highlights"
 	"github.com/forPelevin/hlcut/internal/types"
 )
 
@@ -51,17 +52,13 @@ func (a *Adapter) Refine(
 	tr types.Transcript,
 	cands []types.Candidate,
 	clipsN int,
-	minClip time.Duration,
-	maxClip time.Duration,
 ) ([]types.ClipSpec, error) {
 	_ = tr // reserved for future
 
 	if clipsN <= 0 || len(cands) == 0 {
 		return nil, nil
 	}
-	if minClip <= 0 {
-		minClip = time.Second
-	}
+	minClip, maxClip := highlights.DurationBounds()
 	if maxClip <= 0 || maxClip < minClip {
 		return nil, nil
 	}

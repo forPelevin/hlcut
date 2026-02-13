@@ -56,8 +56,6 @@ func TestRun_BurnSubtitlesToggle(t *testing.T) {
 			res, err := uc.Run(context.Background(), Input{
 				InputMP4:      filepath.Join(tmp, "in.mp4"),
 				ClipsN:        1,
-				MinClip:       5 * time.Second,
-				MaxClip:       10 * time.Second,
 				BurnSubtitles: tc.burnSubtitles,
 				CacheDir:      filepath.Join(tmp, "cache"),
 				OutDir:        outDir,
@@ -150,8 +148,6 @@ func (f fakeLLM) Refine(
 	_ types.Transcript,
 	_ []types.Candidate,
 	_ int,
-	_ time.Duration,
-	_ time.Duration,
 ) ([]types.ClipSpec, error) {
 	return f.clips, nil
 }
@@ -205,8 +201,6 @@ func TestRun_SortsClipsByTimeline(t *testing.T) {
 	res, err := uc.Run(context.Background(), Input{
 		InputMP4: filepath.Join(tmp, "in.mp4"),
 		ClipsN:   2,
-		MinClip:  20 * time.Second,
-		MaxClip:  3 * time.Minute,
 		CacheDir: filepath.Join(tmp, "cache"),
 		OutDir:   outDir,
 	})

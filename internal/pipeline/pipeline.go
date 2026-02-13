@@ -21,11 +21,11 @@ import (
 )
 
 type Config struct {
-	InputMP4      string
-	OutDir        string
-	ClipsN        int
-	MinClip       time.Duration
-	MaxClip       time.Duration
+	InputMP4 string
+	OutDir   string
+	ClipsN   int
+	// ClipsNSet indicates whether --clips was explicitly provided by the user.
+	ClipsNSet     bool
 	BurnSubtitles bool
 	Logf          func(format string, args ...any)
 
@@ -45,6 +45,11 @@ type Config struct {
 	OpenRouterAllowedHosts []string
 }
 
+const (
+	autoClipWindow   = 5 * time.Minute
+	autoClipMaxLimit = 80
+)
+
 func (c Config) Validate() error {
 	if c.InputMP4 == "" {
 		return errors.New("input is empty")
@@ -54,15 +59,6 @@ func (c Config) Validate() error {
 	}
 	if c.ClipsN <= 0 {
 		return fmt.Errorf("clips must be > 0")
-	}
-	if c.MaxClip <= 0 {
-		return fmt.Errorf("max clip must be > 0")
-	}
-	if c.MinClip <= 0 {
-		return fmt.Errorf("min clip must be > 0")
-	}
-	if c.MinClip > c.MaxClip {
-		return fmt.Errorf("min clip must be <= max clip")
 	}
 	if c.WhisperModel == "" {
 		return fmt.Errorf("whisper model path is required")
@@ -83,6 +79,19 @@ func Run(ctx context.Context, cfg Config) error {
 	v := ffmpeg.New(cfg.FFmpegPath, cfg.FFprobePath)
 	asr := whispercpp.New(cfg.WhisperBin, cfg.WhisperModel)
 	llm := openrouter.New(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.OpenRouterBaseURL)
+
+	clipsN := cfg.ClipsN
+	if !cfg.ClipsNSet {
+		videoDur, err := v.ProbeDuration(ctx, cfg.InputMP4)
+		if err != nil {
+			logf("duration probe failed, keeping clip cap %d: %v", clipsN, err)
+		} else {
+			clipsN = autoClipCount(clipsN, videoDur)
+			if clipsN != cfg.ClipsN {
+				logf("auto clips cap from duration: %s => %d", formatDuration(videoDur), clipsN)
+			}
+		}
+	}
 
 	deps := usecase.Deps{
 		Video: v,
@@ -127,9 +136,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	res, err := uc.Run(ctx, usecase.Input{
 		InputMP4:      cfg.InputMP4,
-		ClipsN:        cfg.ClipsN,
-		MinClip:       cfg.MinClip,
-		MaxClip:       cfg.MaxClip,
+		ClipsN:        clipsN,
 		BurnSubtitles: cfg.BurnSubtitles,
 		CacheDir:      cacheDir,
 		OutDir:        runOutDir,
@@ -157,10 +164,10 @@ func buildRunOutDir(outRoot, inputMP4 string, now time.Time) string {
 	if name == "" {
 		name = "input"
 	}
-	ts := now.UTC().Format("20060102-150405Z")
+	ts := now.UTC().UnixMilli()
 	runSeed := fmt.Sprintf("%s|%d", inputMP4, now.UTC().UnixNano())
 	suffix := hash(runSeed)[:6]
-	return filepath.Join(outRoot, fmt.Sprintf("%s-%s-%s", name, ts, suffix))
+	return filepath.Join(outRoot, fmt.Sprintf("%013d-%s-%s", ts, name, suffix))
 }
 
 func normalizePathSegment(s string) string {
@@ -184,6 +191,31 @@ func normalizePathSegment(s string) string {
 func hash(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])[:12]
+}
+
+func autoClipCount(base int, duration time.Duration) int {
+	if base <= 0 || duration <= 0 {
+		return base
+	}
+
+	estimated := int(duration / autoClipWindow)
+	if duration%autoClipWindow != 0 {
+		estimated++
+	}
+
+	if base >= estimated {
+		return base
+	}
+
+	clipsN := estimated
+	if clipsN > autoClipMaxLimit {
+		return autoClipMaxLimit
+	}
+	return clipsN
+}
+
+func formatDuration(d time.Duration) string {
+	return d.Round(100 * time.Millisecond).String()
 }
 
 // ensure adapters implement ports

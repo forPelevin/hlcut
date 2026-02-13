@@ -32,7 +32,7 @@
   - strips code fences
   - extracts the first JSON object substring
 - Post-processing constraints:
-  - clip duration must be within configured `minClip..maxClip`
+  - clip duration must stay within internal duration bounds
   - clips must be distinct and non-overlapping
   - requested `clips` is an upper bound (result can be smaller)
 - If model output is malformed/invalid, selection falls back deterministically to best-scoring valid candidates
