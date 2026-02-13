@@ -13,9 +13,8 @@ func TestBuildCandidates_RespectsMaxClip(t *testing.T) {
 		{Start: 0, End: 40, Text: "A"},
 		{Start: 40, End: 90, Text: "B"},
 	}}
-	min := 20 * time.Second
-	max := 60 * time.Second
-	cands := BuildCandidates(tr, min, max)
+	min, max := DurationBounds()
+	cands := BuildCandidates(tr)
 	if len(cands) == 0 {
 		t.Fatalf("expected candidates")
 	}
@@ -32,7 +31,9 @@ func TestBuildCandidates_RespectsMaxClip(t *testing.T) {
 func TestBuildCandidates_CoversLateTranscriptParts(t *testing.T) {
 	words := make([]types.Word, 0, 300)
 	for i := 0; i < 300; i++ {
-		st := float64(i) * 0.5
+		// Keep words sparse so each start index contributes a small number of
+		// candidates and the global candidate cap does not starve late starts.
+		st := float64(i) * 10
 		words = append(words, types.Word{
 			Start: st,
 			End:   st + 0.5,
@@ -42,18 +43,18 @@ func TestBuildCandidates_CoversLateTranscriptParts(t *testing.T) {
 
 	tr := types.Transcript{
 		Segments: []types.Segment{
-			{Start: 0, End: 150, Words: words},
+			{Start: 0, End: 3000, Words: words},
 		},
 	}
 
-	cands := BuildCandidates(tr, 20*time.Second, 30*time.Second)
+	cands := BuildCandidates(tr)
 	if len(cands) == 0 {
 		t.Fatalf("expected candidates")
 	}
 
 	var hasLate bool
 	for _, c := range cands {
-		if c.Start >= 90*time.Second {
+		if c.Start >= 20*time.Minute {
 			hasLate = true
 			break
 		}

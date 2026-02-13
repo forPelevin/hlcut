@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/forPelevin/hlcut/internal/domain/highlights"
@@ -26,8 +27,6 @@ func New(d Deps) Usecase { return Usecase{d: d} }
 type Input struct {
 	InputMP4      string
 	ClipsN        int
-	MinClip       time.Duration
-	MaxClip       time.Duration
 	BurnSubtitles bool
 	CacheDir      string
 	OutDir        string
@@ -69,24 +68,31 @@ func (u Usecase) Run(ctx context.Context, in Input) (Result, error) {
 	stageStart = time.Now()
 	// Candidate generation is intentionally broad; final selection constraints
 	// (quality, non-overlap, count) are enforced in the LLM refinement stage.
-	cands := highlights.BuildCandidates(tr, in.MinClip, in.MaxClip)
+	cands := highlights.BuildCandidates(tr)
 	logf(in.Logf, "stage 3/5 done in %s (%d candidates)", shortDuration(time.Since(stageStart)), len(cands))
 
 	logf(in.Logf, "stage 4/5: refining clips with llm")
 	stageStart = time.Now()
-	clipSpecs, err := u.d.LLM.Refine(ctx, tr, cands, in.ClipsN, in.MinClip, in.MaxClip)
+	clipSpecs, err := u.d.LLM.Refine(ctx, tr, cands, in.ClipsN)
 	if err != nil {
 		return Result{}, err
 	}
 	logf(in.Logf, "stage 4/5 done in %s (%d selected)", shortDuration(time.Since(stageStart)), len(clipSpecs))
 	if len(clipSpecs) == 0 {
+		minClip, maxClip := highlights.DurationBounds()
 		logf(
 			in.Logf,
 			"no highlights found (%s to %s, distinct non-overlapping windows); writing empty manifest",
-			formatTimestamp(in.MinClip),
-			formatTimestamp(in.MaxClip),
+			formatTimestamp(minClip),
+			formatTimestamp(maxClip),
 		)
 	}
+	sort.Slice(clipSpecs, func(i, j int) bool {
+		if clipSpecs[i].Start == clipSpecs[j].Start {
+			return clipSpecs[i].End < clipSpecs[j].End
+		}
+		return clipSpecs[i].Start < clipSpecs[j].Start
+	})
 
 	if in.BurnSubtitles {
 		logf(in.Logf, "stage 5/5: rendering clips and subtitles")

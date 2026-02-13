@@ -7,19 +7,22 @@ import (
 	"github.com/forPelevin/hlcut/internal/types"
 )
 
+const (
+	defaultMinClip = 20 * time.Second
+	defaultMaxClip = 3 * time.Minute
+)
+
+// DurationBounds returns internal duration limits for generated clips.
+func DurationBounds() (time.Duration, time.Duration) {
+	return defaultMinClip, defaultMaxClip
+}
+
 // BuildCandidates creates many candidate windows from the transcript.
 // MVP strategy:
 //   - Prefer word-timestamp-driven windows when available (more granular than segments).
 //   - Fall back to segment windows.
-func BuildCandidates(tr types.Transcript, minClip, maxClip time.Duration) []types.Candidate {
-	// Guardrails keep callers safe from bad config while preserving a useful
-	// lower bound for clip duration.
-	if minClip <= 0 {
-		minClip = time.Second
-	}
-	if maxClip <= 0 || maxClip < minClip {
-		return nil
-	}
+func BuildCandidates(tr types.Transcript) []types.Candidate {
+	minClip, maxClip := DurationBounds()
 
 	segs := tr.Segments
 	if len(segs) == 0 {

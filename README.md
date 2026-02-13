@@ -117,10 +117,8 @@ hlcut <input> [flags]
 Flags:
 
 - `--out` output directory (default: `out`)
-- `--clips` max number of clips to return (default: `12`)
+- `--clips` max number of clips to return (auto-adjusted from duration when flag is omitted; minimum default still applies)
 - `--burn-subtitles` burn karaoke subtitles into clips and write `<run-dir>/subtitles/*.ass` (default: `false`)
-- `--min` min clip duration in seconds (default: `20`, hidden/internal tuning flag)
-- `--max` max clip duration in seconds (default: `60`, hidden/internal tuning flag)
 
 Examples:
 
@@ -168,7 +166,7 @@ go build -o ./bin/hlcut ./cmd/hlcut
 
 ```text
 out/
-  <video-name>-<YYYYMMDD-HHMMSSZ>-<id>/
+  <unix_ms>-<video-name>-<id>/
     manifest.json
     clips/
       001.mp4
@@ -185,7 +183,7 @@ out/
 Behavior guarantees:
 
 - `--clips` is an upper bound, not an exact target.
-- Clips are duration-constrained (`--min`..`--max`) and non-overlapping.
+- Clips are constrained by internal duration policy (currently `20..180s`) and non-overlapping.
 - If no valid highlights exist, run completes successfully and writes an empty `clips` array in `manifest.json`.
 - No cleanup of previous runs: every run writes to a new run directory inside `--out`.
 
@@ -205,7 +203,7 @@ Environment variables:
 1. Extract audio from MP4 using `ffmpeg`.
 2. Transcribe using `whisper.cpp` with word timing.
 3. Build candidate highlight windows from transcript segments/words.
-4. Ask OpenRouter model to refine/select distinct highlight clips (bounded by `--clips`, constrained by `--min`/`--max`).
+4. Ask OpenRouter model to refine/select distinct highlight clips (bounded by `--clips`, constrained by internal duration policy).
 5. Optionally render ASS karaoke subtitles (`--burn-subtitles`).
 6. Render final clips via `ffmpeg` (subtitle burn-in only when `--burn-subtitles` is set).
 7. Write `manifest.json`.
