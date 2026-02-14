@@ -3,7 +3,7 @@
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
 ![Status](https://img.shields.io/badge/status-MVP-orange)
 ![Input](https://img.shields.io/badge/input-local%20mp4-blue)
-![License](https://img.shields.io/badge/license-unset-lightgrey)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 `hlcut` is a local-first CLI that turns long podcast/tutorial videos into short highlight clips, with optional burned-in karaoke subtitles (`--burn-subtitles`).
 
@@ -287,4 +287,4 @@ See `SECURITY.md` for vulnerability reporting guidance.
 
 ## License
 
-No OSS license file is present yet. Add a `LICENSE` before public distribution.
+Licensed under the Apache License, Version 2.0. See `LICENSE`.
